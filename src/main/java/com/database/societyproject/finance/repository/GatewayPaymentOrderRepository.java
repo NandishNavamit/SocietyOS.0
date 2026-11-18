@@ -1,0 +1,1 @@
+package com.database.societyproject.finance.repository; import com.database.societyproject.finance.entity.GatewayPaymentOrder; import java.util.*; import org.springframework.data.jpa.repository.JpaRepository; public interface GatewayPaymentOrderRepository extends JpaRepository<GatewayPaymentOrder,Long>{Optional<GatewayPaymentOrder> findByRazorpayOrderId(String id);}

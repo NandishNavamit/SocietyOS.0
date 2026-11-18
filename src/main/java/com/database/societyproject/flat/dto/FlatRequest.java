@@ -1,0 +1,14 @@
+package com.database.societyproject.flat.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
+public record FlatRequest(
+        @NotBlank @Size(max = 255) String flatNumber,
+        @PositiveOrZero Integer floorNumber,
+        @Size(max = 100) String flatType,
+        @PositiveOrZero Double areaSqft,
+        Boolean active,
+        @NotNull Long blockId) { }

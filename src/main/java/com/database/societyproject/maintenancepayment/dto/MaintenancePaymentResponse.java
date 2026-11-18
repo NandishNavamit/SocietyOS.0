@@ -1,0 +1,3 @@
+package com.database.societyproject.maintenancepayment.dto;
+import com.database.societyproject.finance.entity.PaymentMethod; import com.database.societyproject.maintenancepayment.entity.MaintenancePaymentStatus; import java.math.BigDecimal; import java.time.*; import java.util.List;
+public record MaintenancePaymentResponse(Long id,Long societyId,BigDecimal amount,LocalDate paymentDate,PaymentMethod paymentMethod,MaintenancePaymentStatus status,String referenceNumber,String razorpayPaymentId,String notes,LocalDateTime createdAt,List<Allocation> allocations){ public record Allocation(Long billId,String flatNumber,BigDecimal amount){} }

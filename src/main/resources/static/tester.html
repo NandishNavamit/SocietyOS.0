@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Society API Tester</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background:#111827; color:#e5e7eb; }
+    body { max-width:1100px; margin:0 auto; padding:28px 18px 60px; }
+    h1 { margin:0; } .sub { color:#9ca3af; margin:6px 0 24px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:16px; }
+    section { background:#1f2937; border:1px solid #374151; border-radius:12px; padding:18px; }
+    h2 { font-size:17px; margin:0 0 14px; } label { display:block; font-size:13px; margin:9px 0 4px; color:#d1d5db; }
+    input, textarea, select { width:100%; box-sizing:border-box; padding:9px; border:1px solid #4b5563; border-radius:7px; background:#111827; color:white; }
+    textarea { min-height:105px; font-family:ui-monospace, monospace; } button { margin-top:12px; background:#2563eb; color:white; border:0; border-radius:7px; padding:10px 14px; cursor:pointer; font-weight:600; }
+    button.secondary { background:#4b5563; margin-left:7px; } button.danger { background:#b91c1c; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#030712; border:1px solid #374151; border-radius:8px; padding:14px; min-height:92px; }
+    .wide { margin-top:16px; } .status { padding:8px 10px; background:#172554; border-radius:7px; color:#bfdbfe; font-size:14px; }
+  </style>
+</head>
+<body>
+  <h1>Society API Tester</h1>
+  <p class="sub">A small testing UI for the backend. It is not the final product frontend.</p>
+  <p id="status" class="status">Not signed in.</p>
+
+  <div class="grid">
+    <section>
+      <h2>Register a test user</h2>
+      <label>Full name <input id="regName" value="Test Resident"></label>
+      <label>Email <input id="regEmail" type="email" value="test.resident@example.com"></label>
+      <label>Phone <input id="regPhone" value="+919999999998"></label>
+      <label>Password <input id="regPassword" type="password" value="TestPassword@123"></label>
+      <button onclick="register()">Register</button>
+    </section>
+
+    <section>
+      <h2>Log in</h2>
+      <label>Email <input id="loginEmail" type="email" value="admin@yourcompany.com"></label>
+      <label>Password <input id="loginPassword" type="password" value=""></label>
+      <button onclick="login()">Log in</button><button class="secondary" onclick="refreshToken()">Refresh token</button>
+      <button class="danger" onclick="logout()">Log out</button>
+    </section>
+
+    <section>
+      <h2>Authenticated account</h2>
+      <p>Uses <code>GET /api/auth/me</code>.</p>
+      <button onclick="callApi('/api/auth/me')">Check my account</button>
+      <button class="secondary" onclick="callApi('/api/reports/societies/1/dashboard')">Society 1 dashboard</button>
+      <button class="secondary" onclick="callApi('/api/notifications/user/' + currentUserId())">My notifications</button>
+    </section>
+  </div>
+
+  <section class="wide">
+    <h2>Generic API request</h2>
+    <label>Method <select id="method"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></label>
+    <label>Path, for example <code>/api/reports/societies/1/dashboard</code><input id="path" value="/api/reports/societies/1/dashboard"></label>
+    <label>JSON body (optional)<textarea id="body">{}</textarea></label>
+    <button onclick="customRequest()">Send authenticated request</button>
+  </section>
+
+  <section class="wide"><h2>Response</h2><pre id="output">Ready.</pre></section>
+
+  <script>
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+    const tokenKey = 'societyTesterAccessToken';
+    const refreshKey = 'societyTesterRefreshToken';
+    const userKey = 'societyTesterUserId';
+    const token = () => localStorage.getItem(tokenKey);
+    const currentUserId = () => localStorage.getItem(userKey) || 'YOUR_USER_ID';
+    const show = data => output.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    function updateStatus() { status.textContent = token() ? 'Signed in. Token is stored only in this browser for testing.' : 'Not signed in.'; }
+    async function request(path, options = {}) {
+      const headers = { 'Content-Type':'application/json', ...(options.headers || {}) };
+      if (token()) headers.Authorization = `Bearer ${token()}`;
+      const response = await fetch(path, { ...options, headers });
+      const text = await response.text();
+      let data; try { data = text ? JSON.parse(text) : { message: 'No content' }; } catch { data = text; }
+      show({ status: response.status, response: data });
+      return { response, data };
+    }
+    async function register() {
+      await request('/api/auth/register', { method:'POST', body:JSON.stringify({ fullName:regName.value, email:regEmail.value, phoneNumber:regPhone.value, password:regPassword.value }) });
+    }
+    async function login() {
+      const { response, data } = await request('/api/auth/login', { method:'POST', body:JSON.stringify({ email:loginEmail.value, password:loginPassword.value }) });
+      if (response.ok) { localStorage.setItem(tokenKey, data.accessToken); localStorage.setItem(refreshKey, data.refreshToken); await loadMe(); updateStatus(); }
+    }
+    async function loadMe() {
+      const { response, data } = await request('/api/auth/me');
+      if (response.ok) localStorage.setItem(userKey, data.id);
+    }
+    async function refreshToken() {
+      const refreshToken = localStorage.getItem(refreshKey);
+      if (!refreshToken) return show('Log in first.');
+      const { response, data } = await request('/api/auth/refresh', { method:'POST', headers:{}, body:JSON.stringify({ refreshToken }) });
+      if (response.ok) { localStorage.setItem(tokenKey, data.accessToken); localStorage.setItem(refreshKey, data.refreshToken); updateStatus(); }
+    }
+    async function logout() {
+      const refreshToken = localStorage.getItem(refreshKey);
+      if (refreshToken) await request('/api/auth/logout', { method:'POST', body:JSON.stringify({ refreshToken }) });
+      localStorage.removeItem(tokenKey); localStorage.removeItem(refreshKey); localStorage.removeItem(userKey); updateStatus();
+    }
+    async function callApi(path) { await request(path); }
+    async function customRequest() {
+      const method = document.getElementById('method').value;
+      let body = document.getElementById('body').value.trim();
+      if (body && method !== 'GET' && method !== 'DELETE') { try { JSON.parse(body); } catch { return show('Body must be valid JSON.'); } }
+      await request(document.getElementById('path').value, { method, body: body && method !== 'GET' && method !== 'DELETE' ? body : undefined });
+    }
+    updateStatus();
+  </script>
+</body>
+</html>
